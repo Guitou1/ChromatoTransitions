@@ -1,0 +1,776 @@
+---
+title: "Data import"
+author: "Deflandre Guillaume"
+date: "2023-30-22"
+output: html_document
+---
+
+
+Here's a quick code chunk for reading the data provided by UCB Pharma (as well as calculating the conductivity slopes, HETPs, widths at half peaks, etc):
+
+# Data import and formatting
+
+```{r read, echo = FALSE}
+library(readxl)
+
+  ###################
+######## CHANGE #########
+
+pat <- "278787-Run" 
+
+######## CHANGE #########
+  ###################
+
+
+files <- dir("../clean/", pattern = pat, full.names = TRUE)
+
+data_list <- list()
+
+# for (i in 1:4) { ## change 4 en 8 pour fichiers multiples
+#   file <- files[i]
+#   data <- read.csv(file, sep = ";", fileEncoding = "UTF-8")
+#   run_name <- paste("run", i, sep = "")
+#   data_list[[run_name]] <- data
+# }
+
+for (i in 1:4) { ## change 4 en 8 pour fichiers multiples
+  file <- files[i]
+  data <- read_xlsx(file)
+  run_name <- paste("run", i, sep = "")
+  data_list[[run_name]] <- data
+}
+
+com_run_list <- list()
+
+for (i in 1:4) {
+  com_run <- data_list[[i]]
+
+  com_run_name <- paste("com_run", i, sep = "")
+  assign(com_run_name, com_run)
+
+  com_run_list[[i]] <- com_run
+}
+
+# pour les runs multiples fichiers
+# for (i in 1:4) {
+#   index1 <- 2 * i - 1
+#   index2 <- 2 * i
+# 
+#     com_run <- cbind(data_list[[index1]], data_list[[index2]])
+# 
+#   com_run_name <- paste("com_run", i, sep = "")
+#   assign(com_run_name, com_run)
+# 
+#   com_run_list[[i]] <- com_run
+# }
+
+# process_com_run <- function(com_run) {
+#   
+#   com_run <- com_run[-1, ]
+#   colnames(com_run) <- com_run[1, ]
+#   com_run <- com_run[-1, ]
+#   rownames(com_run) <- 1:nrow(com_run)
+#   phase_run <- com_run[1:8, 3:4]
+#   colnames(com_run)[5] <- "cv"
+#   colnames(com_run)[colnames(com_run) == "l/hour"] <- "flow"
+#   colnames(com_run)[colnames(com_run) == "mS/cm"] <- "cond"
+#   subcom_run <- com_run[, c("cv", "flow", "AU", "bar","cond")]
+#   processed_data <- list(
+#     com_run = com_run,
+#     phase_run = phase_run,
+#     subcom_run = subcom_run
+#   )
+#   return(processed_data)
+# }
+# 
+# for (i in 1:4) {
+#   com_run_name <- paste("com_run", i, sep = "")
+#   processed_data <- process_com_run(get(com_run_name))
+#   final[[i]] <- processed_data
+# }
+
+
+
+process_com_run <- function(com_run) {
+  com_run <- com_run[-1, ]
+  colnames(com_run) <- com_run[1, ]
+  com_run <- com_run[-1, ]
+  rownames(com_run) <- NULL
+  phase_run <- com_run[1:8, c("cvv")]
+  colnames(com_run)[1] <- "cv"
+  colnames(com_run)[colnames(com_run) == "l/hour"] <- "flow"
+  colnames(com_run)[colnames(com_run) == "mS/cm"] <- "cond"
+  subcom_run <- com_run[, c("cv", "flow", "AU", "bar", "cond")]
+  processed_data <- list(
+    com_run = com_run,
+    phase_run = phase_run,
+    subcom_run = subcom_run
+  )
+  return(processed_data)
+}
+
+final <- list()
+
+for (i in 1:4) {
+  com_run_name <- paste("com_run", i, sep = "")
+  processed_data <- process_com_run(get(com_run_name))
+  final[[i]] <- processed_data
+}
+
+run1 = final[[1]]$subcom_run
+run2 = final[[2]]$subcom_run
+run3 = final[[3]]$subcom_run
+run4 = final[[4]]$subcom_run
+
+convert_to_numeric <- function(x) {
+  # x <- sub("\\.(?=[^\\.]*$)", "", x, perl = TRUE)
+  # x <- gsub(",", "\\.", x, fixed = TRUE)
+  x <- as.numeric(x)
+  
+  return(x)
+}
+
+# class(run1$bar)
+
+run1$cv = convert_to_numeric(run1$cv)
+run2$cv = convert_to_numeric(run2$cv)
+run3$cv = convert_to_numeric(run3$cv)
+run4$cv = convert_to_numeric(run4$cv)
+
+run1$bar = convert_to_numeric(run1$bar)
+run2$bar = convert_to_numeric(run2$bar)
+run3$bar = convert_to_numeric(run3$bar)
+run4$bar = convert_to_numeric(run4$bar)
+
+run1$AU = convert_to_numeric(run1$AU)
+run2$AU = convert_to_numeric(run2$AU)
+run3$AU = convert_to_numeric(run3$AU)
+run4$AU = convert_to_numeric(run4$AU)
+
+run1$flow = convert_to_numeric(run1$flow)
+run2$flow = convert_to_numeric(run2$flow)
+run3$flow = convert_to_numeric(run3$flow)
+run4$flow = convert_to_numeric(run4$flow)
+
+run1$cond = convert_to_numeric(run1$cond)
+run2$cond = convert_to_numeric(run2$cond)
+run3$cond = convert_to_numeric(run3$cond)
+run4$cond = convert_to_numeric(run4$cond)
+
+head(run1)
+
+library(ggplot2)
+library(reshape2)
+
+Log <- c("Set mark EQ1", "Set mark LOAD - phase 1","Set mark LOAD - phase 2", "Set mark EQ1","Set mark EL1","Set mark start_recolte","Set mark fin_recolte","Set mark REG1")
+
+F1 = final[[1]]$phase_run
+colnames(F1)[1] = "CV1"
+F2 = final[[2]]$phase_run
+colnames(F2)[1] = "CV2"
+F3 = final[[3]]$phase_run
+colnames(F3)[1] = "CV3"
+F4 = final[[4]]$phase_run
+colnames(F4)[1] = "CV4"
+
+FF = cbind(Log,F1, F2, F3, F4)
+F <- FF[c("Log", "CV1", "CV2", "CV3", "CV4")]
+
+F$CV1 <- convert_to_numeric(F$CV1)
+F$CV2 <- convert_to_numeric(F$CV2)
+F$CV3 <- convert_to_numeric(F$CV3)
+F$CV4 <- convert_to_numeric(F$CV4)
+
+
+
+df_plot <- F[, c("Log", "CV1", "CV2", "CV3", "CV4")]
+df_melted <- melt(df_plot, id.vars = "Log")
+p = ggplot(df_melted, aes(x = Log, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Grouped Histogram of CV Values by process",
+       x = "Log", y = "CV Value") +
+  scale_fill_manual(values = c("CV1" = "#FFC3A0", "CV2" = "#A0E7E5", "CV3" = "#FFC0CB", "CV4" = "#C2A0E5")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+p
+
+
+graphical = cbind(Log,F1,F2,F3,F4)
+print(graphical)
+
+
+```
+
+# Find min, max and half-height point
+
+```{r cond}
+# find min and max at hald for first peak
+first_range <- c(0,4)
+scnd_range <- c(14,16.3)
+third_range <-c(16,20)
+
+
+# which_range <- first_range
+# window <- as.data.frame(data[data$cv >= which_range[1] & data$cv <= which_range[2], ])
+# UV <- window$AU
+# 
+# threshold <- 0.003 # Test a modifier
+# plateau <- rep(0, length(UV)) 
+# 
+# for (i in 11:(length(UV) - 10)) { 
+#   delta_Y <- UV[i + 10] - UV[i - 10] 
+#   if (delta_Y <= threshold * UV[i]) { 
+#     plateau[i] <- 1 
+#     } 
+# } 
+# 
+# for (i in 11:(length(UV) - 10)) { 
+#   delta_Y <- UV[i - 10] - UV[i + 10] 
+#   if (delta_Y <= threshold * UV[i]) { 
+#     plateau[i] <- 1 
+#     } 
+# } 
+
+
+gg <- ggplot(window, aes(x = cv, y = AU)) +
+  geom_line() +
+  geom_hline(yintercept = threshold * window$AU, color = "red") +
+  geom_hline(yintercept = 0, color = "blue")+
+  geom_segment(aes(xend = cv, yend = plateau), color = "lightgreen")
+
+calc_plat_values <- function(data, which_range,run_peak){
+  window <- as.data.frame(data[data$cv >= which_range[1] & data$cv <= which_range[2], ])
+  smoothed <- smooth.spline(window$cv,window$AU, keep.data=TRUE)
+  smoothed_data <- data.frame(x = smoothed$x, y = smoothed$y)
+  smoothed_data$Y <- as.numeric(smoothed_data$y)
+  smoothed_data$X <- as.numeric(smoothed_data$x)
+  
+  second_derivative <- diff(diff(smoothed_data$Y))
+  inflection_indices <- which(diff(sign(second_derivative)) != 0)
+  inflection_points <- smoothed_data$X[inflection_indices]
+  p <- ggplot(smoothed_data, aes(x = X, y = Y)) +
+    geom_line(color = "blue", linetype = "solid") +
+    geom_point(data = smoothed_data[inflection_indices, ], aes(x = X, y = Y), color = "red", size = 3) +
+    labs(title = "Data with Highlighted Inflection Points")
+  
+  inflection_points <- smoothed_data$Y[inflection_indices]
+  gd_high <- inflection_points[inflection_points>2.3]
+  gd_low <- inflection_points[inflection_points<0.4]
+  
+  gd_h <- mean(gd_high)
+  gd_l <- mean(gd_low)
+  
+  diff_to_gd_high <- abs(smoothed_data$y - gd_h)
+  diff_to_gd_high <- diff_to_gd_high[!is.na(diff_to_gd_high)]
+  true_val_row <- as.numeric(which(diff_to_gd_high == min(diff_to_gd_high))[1])
+  
+  
+  
+  
+  min_cond <- window$cond[min_row]
+  max_cond <- window$cond[max_row]
+  min_cv <- window$cv[min_row]
+  max_cv <- window$cv[max_row]
+  
+  mid = (as.numeric(max_cond)-as.numeric(min_cond))/2
+  h_value <- as.numeric(min_cond)+mid
+  
+  diff_to_mid <- abs(window$cond - h_value)
+  diff_to_mid <- diff_to_mid[!is.na(diff_to_mid)]
+  half_row <- as.numeric(which(diff_to_mid == min(diff_to_mid))[1])
+  
+  half_cond <- window$cond[half_row]
+  half_cv <- window$cv[half_row]
+  
+  num_values_above_below <- 15
+  values <- window[(half_row - num_values_above_below):(half_row + num_values_above_below), ]
+  
+  y <- values$cond
+  x <- values$cv
+  fit <- lm(y ~ x)
+  slope <- coef(fit)[2]
+  intercept <- coef(fit)[1]
+  lr <- paste(slope,"x","+",intercept,sep = " ")
+  
+  delta_cv_min <- abs(half_cv-min_cv)
+  delta_cv_max <- abs(half_cv-max_cv)
+  
+  cond_and_cv_values <- data.frame("conductivities" = c(min_cond,half_cond,max_cond),"cv" = c(min_cv,half_cv,max_cv),"delta_CV&slope"=c(delta_cv_min,lr,delta_cv_max))
+  
+    row_order <- order(cond_and_cv_values$cv)
+    cond_and_cv_values <- cond_and_cv_values[row_order, ]
+
+  colnames(cond_and_cv_values) <- c(paste("conductivities", run_peak,sep = "_"), paste("cv", run_peak,sep = "_"),paste("delta_CV&slope", run_peak,sep = "_"))
+  rownames(cond_and_cv_values) <- c("CV_start","CV_mid","CV_end")
+  
+  
+  return(cond_and_cv_values)
+}
+```
+
+
+```{r cond1}
+calc_cond_and_cv_values <- function(data, which_range,run_peak){
+  window <- as.data.frame(data[data$cv >= which_range[1] & data$cv <= which_range[2], ])
+  cv_range <- c(min(window$cond,na.rm = TRUE),max(window$cond,na.rm = TRUE))
+  min_row <- which(window$cond == cv_range[1])[1]
+  max_row <- which(window$cond == cv_range[2])[1]
+  
+  min_cond <- window$cond[min_row]
+  max_cond <- window$cond[max_row]
+  min_cv <- window$cv[min_row]
+  max_cv <- window$cv[max_row]
+  
+  mid = (as.numeric(max_cond)-as.numeric(min_cond))/2
+  h_value <- as.numeric(min_cond)+mid
+  
+  diff_to_mid <- abs(window$cond - h_value)
+  diff_to_mid <- diff_to_mid[!is.na(diff_to_mid)]
+  half_row <- as.numeric(which(diff_to_mid == min(diff_to_mid))[1])
+  
+  half_cond <- window$cond[half_row]
+  half_cv <- window$cv[half_row]
+  
+  num_values_above_below <- 15
+  values <- window[(half_row - num_values_above_below):(half_row + num_values_above_below), ]
+  
+  y <- values$cond
+  x <- values$cv
+  fit <- lm(y ~ x)
+  slope <- coef(fit)[2]
+  intercept <- coef(fit)[1]
+  lr <- paste(slope,"x","+",intercept,sep = " ")
+  
+  delta_cv_min <- abs(half_cv-min_cv)
+  delta_cv_max <- abs(half_cv-max_cv)
+  
+  cond_and_cv_values <- data.frame("conductivities" = c(min_cond,half_cond,max_cond),"cv" = c(min_cv,half_cv,max_cv),"delta_CV&slope"=c(delta_cv_min,lr,delta_cv_max))
+  
+    row_order <- order(cond_and_cv_values$cv)
+    cond_and_cv_values <- cond_and_cv_values[row_order, ]
+
+  colnames(cond_and_cv_values) <- c(paste("conductivities", run_peak,sep = "_"), paste("cv", run_peak,sep = "_"),paste("delta_CV&slope", run_peak,sep = "_"))
+  rownames(cond_and_cv_values) <- c("CV_start","CV_mid","CV_end")
+  
+  
+  return(cond_and_cv_values)
+}
+
+
+run1_range1 <- calc_cond_and_cv_values(run1,first_range,"run1_peak1")
+run1_range2 <- calc_cond_and_cv_values(run1,scnd_range,"run1_peak2")
+run1_range3 <- calc_cond_and_cv_values(run1,third_range,"run1_peak3")
+
+run2_range1 <- calc_cond_and_cv_values(run2,first_range,"run2_peak1")
+run2_range2 <- calc_cond_and_cv_values(run2,scnd_range,"run2_peak2")
+run2_range3 <- calc_cond_and_cv_values(run2,third_range,"run2_peak3")
+
+run3_range1 <- calc_cond_and_cv_values(run3,first_range,"run3_peak1")
+run3_range2 <- calc_cond_and_cv_values(run3,scnd_range,"run3_peak2")
+run3_range3 <- calc_cond_and_cv_values(run3,third_range,"run3_peak3")
+
+run4_range1 <- calc_cond_and_cv_values(run4,first_range,"run4_peak1")
+run4_range2 <- calc_cond_and_cv_values(run4,scnd_range,"run4_peak2")
+run4_range3 <- calc_cond_and_cv_values(run4,third_range,"run4_peak3")
+
+run1_cond_and_cv <- cbind(run1_range1,run1_range2,run1_range3)
+run2_cond_and_cv <- cbind(run2_range1,run2_range2,run2_range3)
+run3_cond_and_cv <- cbind(run3_range1,run3_range2,run3_range3)
+run4_cond_and_cv <- cbind(run4_range1,run4_range2,run4_range3)
+
+data_frames <- list(run1_cond_and_cv, run2_cond_and_cv, run3_cond_and_cv, run4_cond_and_cv)
+
+reorder_columns_alphabetically <- function(df) {
+  df[, order(names(df))]
+}
+
+# Apply the function to each data frame in the list
+data_frames <- lapply(data_frames, reorder_columns_alphabetically)
+
+# Reassign the data frames to their original names
+run1_cond_and_cv <- data_frames[[1]]
+run2_cond_and_cv <- data_frames[[2]]
+run3_cond_and_cv <- data_frames[[3]]
+run4_cond_and_cv <- data_frames[[4]]
+```
+
+# Data extraction and manipulation
+
+```{r manip, echo = FALSE}
+# PENTE CONDUCTIVITE
+
+####################### deuxieme pente ##########################
+
+calculate_pente <- function(run_data) {
+  pente_cond <- as.data.frame(run_data[run_data$cv >= 0 & run_data$cv <= 1.2, ])
+  
+  min_value <- min(pente_cond$cond, na.rm = TRUE)
+  max_value <- max(pente_cond$cond, na.rm = TRUE)
+  
+  row_number1 <- which(pente_cond$cond == min_value)
+  row_number2 <- which(pente_cond$cond == max_value)
+  
+  x1 <- pente_cond$cv[row_number1[1]]
+  x2 <- pente_cond$cv[row_number2[1]]      
+  pente <- (as.numeric(max_value) - as.numeric(min_value)) / (x2 - x1)
+  
+  return(pente)
+}
+
+pente1_run1_b2 <- calculate_pente(run1)
+cat("Pente1 pour run1:", pente1_run1, "\n")
+
+pente1_run2_b2 <- calculate_pente(run2)
+cat("Pente1 pour run2:", pente1_run2, "\n")
+
+pente1_run3_b2 <- calculate_pente(run3)
+cat("Pente1 pour run3:", pente1_run3, "\n")
+
+pente1_run4_b2 <- calculate_pente(run4)
+cat("Pente1 pour run4:", pente1_run4, "\n")
+
+Pentes1_cond = data.frame(pente1_run1,pente1_run2,pente1_run3,pente1_run4)
+
+####################### deuxieme pente ##########################
+
+calculate_pente <- function(run_data) {
+  pente_cond <- as.data.frame(run_data[run_data$cv >= 14 & run_data$cv <= 16.3, ])
+  
+  min_value <- min(pente_cond$cond, na.rm = TRUE)
+  max_value <- max(pente_cond$cond, na.rm = TRUE)
+  
+  row_number1 <- which(pente_cond$cond == min_value)
+  row_number2 <- which(pente_cond$cond == max_value)
+  
+  x1 <- pente_cond$cv[row_number1[1]]
+  x2 <- pente_cond$cv[row_number2[1]]
+  pente <- (as.numeric(max_value) - as.numeric(min_value)) / (x2 - x1)
+  
+  return(pente)
+}
+
+pente2_run1_b2 <- calculate_pente(run1)
+cat("Pente2 pour run1:", pente2_run1, "\n")
+
+pente2_run2_b2 <- calculate_pente(run2)
+cat("Pente2 pour run2:", pente2_run2, "\n")
+
+pente2_run3_b2 <- calculate_pente(run3)
+cat("Pente2 pour run3:", pente2_run3, "\n")
+
+pente2_run4_b2 <- calculate_pente(run4)
+cat("Pente2 pour run4:", pente2_run4, "\n")
+
+Pentes2_cond = data.frame(pente2_run1,pente2_run2,pente2_run3,pente2_run4)
+
+####################### troisieme pente ##########################
+
+calculate_pente <- function(run_data) {
+  pente_cond <- as.data.frame(run_data[run_data$cv >= 17.5 & run_data$cv <= 19.5, ])
+  
+  min_value <- min(pente_cond$cond, na.rm = TRUE)
+  max_value <- max(pente_cond$cond, na.rm = TRUE)
+  
+  row_number1 <- which(pente_cond$cond == min_value)
+  row_number2 <- which(pente_cond$cond == max_value)
+  
+  x1 <- pente_cond$cv[row_number1[1]]
+  x2 <- pente_cond$cv[row_number2[1]]
+  pente <- (as.numeric(max_value) - as.numeric(min_value)) / (x2 - x1)
+  
+  return(pente)
+}
+
+pente3_run1_b2 <- calculate_pente(run1)
+cat("Pente3 pour run1:", pente3_run1, "\n")
+
+pente3_run2_b2 <- calculate_pente(run2)
+cat("Pente3 pour run2:", pente3_run2, "\n")
+
+pente3_run3_b2 <- calculate_pente(run3)
+cat("Pente3 pour run3:", pente3_run3, "\n")
+
+pente3_run4_b2 <- calculate_pente(run4)
+cat("Pente3 pour run4:", pente3_run4, "\n")
+
+Pentes3_cond_b2 = data.frame(pente3_run1,pente3_run2,pente3_run3,pente3_run4)
+
+Pentes_cond <- data.frame(cbind(Pentes1_cond,Pentes2_cond,Pentes3_cond))
+
+# PIC A MI HAUTEUR
+
+################## PIC 1 ####################
+
+calculate_cv <- function(run_data2) {
+  pente_cond <- as.data.frame(run_data2[run_data2$cv >= 0 & run_data2$cv <= 1.2, ])
+  min_value2 <- min(pente_cond$cond, na.rm = TRUE)
+  max_value2 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value2)
+  mid = (as.numeric(max_value2)-as.numeric(min_value2))/2
+  diff_to_mid <- abs(pente_cond$cond - mid)
+  diff_to_mid <- diff_to_mid[!is.na(diff_to_mid)]
+  row_number1 <- which(diff_to_mid == min(diff_to_mid))
+  x11 <- pente_cond$cv[row_number1[1]]
+  x22 <- pente_cond$cv[mm[1]] #### ATTENTION ICI LE CV DOIT ETRE CELUI DU MAX REEL
+  diff_cv = abs(2*(x22-x11))
+  return(diff_cv[1])
+}
+
+calculate_time <- function(run_data3) {
+  pente_cond <- as.data.frame(run_data3[run_data3$cv >= 0 & run_data3$cv <= 1.2, ])
+  max_value3 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value3)
+  x222 <- pente_cond$cv[mm[1]]
+  time = x222
+  return(time)
+}
+
+calculate_N <- function(runs) {
+  W<-calculate_cv(runs)
+  t<-calculate_time(runs)
+  # L = 24.6
+  N<-5.545*100*(t/(W))^2 ### ici il y a un *100
+  # hetp<-L/N
+  return(N)
+}
+
+################## PIC2 ####################
+
+calculate_cv2 <- function(run_data2) {
+  pente_cond <- as.data.frame(run_data2[run_data2$cv >= 14 & run_data2$cv <= 16.3, ])
+  min_value2 <- min(pente_cond$cond, na.rm = TRUE)
+  max_value2 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value2)
+  mid = (as.numeric(max_value2)-as.numeric(min_value2))/2
+  diff_to_mid <- abs(pente_cond$cond - mid)
+  diff_to_mid <- diff_to_mid[!is.na(diff_to_mid)]
+  row_number1 <- which(diff_to_mid == min(diff_to_mid))
+  x11 <- pente_cond$cv[row_number1[1]]
+  x22 <- pente_cond$cv[mm[1]] #### ATTENTION ICI LE CV DOIT ETRE CELUI DU MAX REEL
+  diff_cv = abs(2*(x22-x11))
+  return(diff_cv[1])
+}
+
+calculate_time2 <- function(run_data3) {
+  pente_cond <- as.data.frame(run_data3[run_data3$cv >= 14 & run_data3$cv <= 16.3, ])
+  max_value3 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value3)
+  x222 <- pente_cond$cv[mm[1]]
+  time = x222
+  return(time)
+}
+
+calculate_N2 <- function(runs) {
+  W<-calculate_cv2(runs)
+  t<-calculate_time2(runs)
+  # L = 24.6
+  N<-5.545*100*(t/(W))^2 ### ici il y a un *100
+  # hetp<-L/N
+  return(N)
+}
+
+################## PIC 3 ####################
+
+calculate_cv3 <- function(run_data2) {
+  pente_cond <- as.data.frame(run_data2[run_data2$cv >= 17.5 & run_data2$cv <= 19.5, ])
+  min_value2 <- min(pente_cond$cond, na.rm = TRUE)
+  max_value2 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value2)
+  mid = (as.numeric(max_value2)-as.numeric(min_value2))/2
+  diff_to_mid <- abs(pente_cond$cond - mid)
+  diff_to_mid <- diff_to_mid[!is.na(diff_to_mid)]
+  row_number1 <- which(diff_to_mid == min(diff_to_mid))
+  x11 <- pente_cond$cv[row_number1[1]]
+  x22 <- pente_cond$cv[mm[1]] #### ATTENTION ICI LE CV DOIT ETRE CELUI DU MAX REEL
+  diff_cv = abs(2*(x22-x11))
+  return(diff_cv[1])
+}
+
+calculate_time3 <- function(run_data3) {
+  pente_cond <- as.data.frame(run_data3[run_data3$cv >= 17.5 & run_data3$cv <= 19.5, ])
+  max_value3 <- max(pente_cond$cond, na.rm = TRUE)
+  mm = which(pente_cond$cond == max_value3)
+  x222 <- pente_cond$cv[mm[1]]
+  time = x222
+  return(time)
+}
+
+calculate_N3 <- function(runs) {
+  W<-calculate_cv3(runs)
+  t<-calculate_time3(runs)
+  # L = 24.6
+  N<-5.545*100*(t/(W))^2 ### ici il y a un *100
+  # hetp<-L/N
+  return(N)
+}
+
+L = 24.6
+
+# pic mi hauteur
+
+w1a <- calculate_cv(run1)
+w2a <-calculate_cv(run2)
+w3a <-calculate_cv(run3)
+w4a <-calculate_cv(run4)
+wa = data.frame(w1a,w2a,w3a,w4a)
+
+w1b <- calculate_cv2(run1)
+w2b <-calculate_cv2(run2)
+w3b <-calculate_cv2(run3)
+w4b <-calculate_cv2(run4)
+wb = data.frame(w1b,w2b,w3b,w4b)
+
+w1c <- calculate_cv3(run1)
+w2c <-calculate_cv3(run2)
+w3c <-calculate_cv3(run3)
+w4c <-calculate_cv3(run4)
+wc = data.frame(w1c,w2c,w3c,w4c)
+
+w= cbind(wa,wb,wc)
+
+# HETP values 
+
+h1a <- calculate_N(run1)
+h2a <- calculate_N(run2)
+h3a <- calculate_N(run3)
+h4a <- calculate_N(run4)
+
+h1b <- calculate_N2(run1)
+h2b <- calculate_N2(run2)
+h3b <- calculate_N2(run3)
+h4b <- calculate_N2(run4)
+
+h1c <- calculate_N3(run1)
+h2c <- calculate_N3(run2)
+h3c <- calculate_N3(run3)
+h4c <- calculate_N3(run4)
+
+h <- data.frame(h1a, h2a, h3a, h4a, h1b, h2b, h3b, h4b, h1c, h2c, h3c, h4c)
+```
+
+# Print file
+
+```{r manip, echo = FALSE}
+# essai de modification: determination des différences de données
+
+num <- c(nrow(run1), nrow(run2), nrow(run3), nrow(run4))
+print(num)
+bibi <- data.frame(run1 = num[1], run2 = num[2], run3 = num[3], run4 = num[4])
+bibi = as.matrix(bibi)
+
+print(bibi)
+
+col_order <- order(-bibi)
+bibi <- bibi[, col_order]
+bibi <- data.frame(bibi)
+
+print(bibi)
+
+diff1 <- bibi[1, ] - bibi[2, ]
+diff2 <- bibi[1, ] - bibi[3, ]
+diff3 <- bibi[1, ] - bibi[4, ]
+
+diff = as.numeric(c(diff1,diff2,diff3))
+
+# ajout de 0
+fat <- rownames(bibi)[2:4]
+
+position_to_insert=4000
+row_with_zeros <- data.frame(cv = 0, flow = 0, AU = 0, bar = 0, cond = 0)
+
+
+for (j in 1:3) {
+  for (i in 1:diff[j]) {
+    current_df <- get(fat[j])
+    current_df <- rbind(current_df[1:position_to_insert, ], row_with_zeros, current_df[(position_to_insert+1):nrow(current_df), ])
+    assign(fat[j], current_df)
+    position_to_insert <- position_to_insert + 1
+  }
+}
+
+num <- c(nrow(run1), nrow(run2), nrow(run3), nrow(run4))
+print(num)
+
+library(openxlsx)
+
+run2 <- run2[-1]
+run3 <- run3[-1]
+run4 <- run4[-1]
+
+
+# Add the number 1 after every column name
+colnames(run1) <- paste0(colnames(run1), "1")
+colnames(run2) <- paste0(colnames(run2), "2")
+colnames(run3) <- paste0(colnames(run3), "3")
+colnames(run4) <- paste0(colnames(run4), "4")
+
+finished_product1 <- cbind(run1, run2, run3, run4)
+row_order1 <- order(finished_product1$cv1)
+finished_product1$cv1[finished_product1$cv1 == 0] <- finished_product1$cv1[4000]
+finished_product1$cv2[finished_product1$cv2 == 0] <- finished_product1$cv2[4000]
+finished_product1$cv3[finished_product1$cv3 == 0] <- finished_product1$cv3[4000]
+finished_product1$cv4[finished_product1$cv4 == 0] <- finished_product1$cv4[4000]
+
+finished_product1 <- finished_product1[row_order1, ]
+finished_product <- finished_product1
+
+colnames(finished_product)[colnames(finished_product) == "cv1"] <- "cv"
+finished_product$cv[finished_product$cv == 0] <- finished_product$cv[4000]
+
+desired_order <- c("cv", paste0("AU", 1:4), paste0("bar", 1:4), paste0("cond", 1:4), paste0("flow", 1:4))
+finished_product <- finished_product[, desired_order]
+
+head(finished_product)
+
+library(ggplot2)
+library(tidyr)
+
+# desired_columns <- c("cv", "cond1", "cond2", "cond3", "cond4")
+desired_columns <- c("cv", "AU1", "AU2", "AU3", "AU4")
+# desired_columns <- c("cv", "bar1", "bar2", "bar3", "bar4")
+# desired_columns <- c("cv", "flow1", "flow2", "flow3", "flow4")
+
+filtered_data <- finished_product[, desired_columns]
+filtered_data_long <- gather(filtered_data, param, value, -cv)
+ggplot(data = filtered_data_long, aes(x = cv, y = value, color = param)) +
+  geom_line() +
+  labs(
+    title = "Lineplot for the defined parameter",
+    x = "cv",
+    y = "Value"
+  ) +
+  theme_minimal()
+
+# write.xlsx(finished_product, file = paste("finished_",pat,".xlsx"))
+
+wb <- createWorkbook()
+
+addWorksheet(wb, sheetName = "All_Data")
+writeData(wb, sheet = "All_Data", x = finished_product1)
+
+addWorksheet(wb, sheetName = "Logbook and CV")
+writeData(wb, sheet = "Logbook and CV", x = graphical)
+
+addWorksheet(wb, sheetName = "run1_conductivity")
+writeData(wb, sheet = "run1_conductivity", x = run1_cond_and_cv, row.names = TRUE)
+
+addWorksheet(wb, sheetName = "run2_conductivity")
+writeData(wb, sheet = "run2_conductivity", x = run2_cond_and_cv, row.names = TRUE)
+
+addWorksheet(wb, sheetName = "run3_conductivity")
+writeData(wb, sheet = "run3_conductivity", x = run3_cond_and_cv, row.names = TRUE)
+
+addWorksheet(wb, sheetName = "run4_conductivity")
+writeData(wb, sheet = "run4_conductivity", x = run4_cond_and_cv, row.names = TRUE)
+
+# addWorksheet(wb, sheetName = "Largeur mi-hauteur cond")
+# writeData(wb, sheet = "Largeur mi-hauteur cond", x = w)
+# 
+# addWorksheet(wb, sheetName = "HETP_values")
+# writeData(wb, sheet = "HETP_values", x = h[,1:4])
+
+saveWorkbook(wb, file = paste("finished_cond_", pat, ".xlsx"), overwrite = TRUE)
+
+```
+
